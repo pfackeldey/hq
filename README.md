@@ -24,13 +24,13 @@ bun run typescript/server.ts
 2. submit some tasks with `uv`:
 
 ```shell
-uv run example/client.py
+uv run example/simple/client.py
 ```
 
 3. start a worker to consume those tasks with `uv`:
 
 ```shell
-uv run example/worker.py
+uv run example/simple/worker.py
 ```
 
 Once all tasks are finished the server and the worker(s) can be shut down with ctrl+c.

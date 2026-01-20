@@ -50,6 +50,7 @@ class HQWorker(HQBaseConnection):
                     continue
                 for payload in payloads:
                     result = worker._process_task(payload=payload)
-                    print(f"Task {result=}")
+                    if result is not None:
+                        print(f"Task {result=}")
             # let the server breathe
             time.sleep(0.1)

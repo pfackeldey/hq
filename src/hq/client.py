@@ -15,8 +15,14 @@ class AddTaskDict(tp.TypedDict):
 
 
 class TaskStatus(tp.TypedDict):
-    status: tp.Literal["success"] | tp.Literal["running"] | tp.Literal["error"]
-    info: str | None  # additional info, e.g. path to log file / error
+    status: (
+        tp.Literal["success"]
+        | tp.Literal["running"]
+        | tp.Literal["error"]
+        | tp.Literal["queued"]
+        | tp.Literal["lost"]
+    )
+    info: tp.Any  # additional info, e.g. path to log file / error
 
 
 # client extends with `submit` and `map`

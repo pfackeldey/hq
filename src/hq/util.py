@@ -10,7 +10,7 @@ def serialize_obj(obj: tp.Any) -> str:
     return base64.b64encode(pck_obj).decode("utf-8")
 
 
-def deserialize_obj(obj: tp.Any) -> tp.Any:
+def deserialize_obj(obj: str | None) -> tp.Any:
     if obj is None:
         return None
 

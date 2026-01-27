@@ -4,9 +4,9 @@ import functools
 import multiprocessing
 import requests
 import time
-import traceback
 import socket
 import os
+import typing as tp
 
 from hq.base import HQBaseConnection
 from hq.util import deserialize_obj, serialize_obj
@@ -20,9 +20,10 @@ class HQWorker(HQBaseConnection):
         self,
         host: str,
         port: int,
-        worker_id: str
-        | None = None,  # unique name, needs to be unique among all existing workers
-        fetch_n_tasks: int = 1,  # number of tasks to fetch in a single API request
+        # unique name, needs to be unique among all existing workers
+        worker_id: str | None = None,
+        # number of tasks to fetch in a single API request
+        fetch_n_tasks: int = 1,
     ) -> None:
         super().__init__(host, port)
         if worker_id is None:
@@ -109,15 +110,17 @@ def _heartbeat_loop(worker: HQWorker) -> None:
         time.sleep(1)  # ping every 1s
 
 
-def run(worker: HQWorker) -> None:
-    # start them as subprocesses to avoid delayed
-    # heartbeats because of long-holding GIL in 'process'
-    heartbeat = multiprocessing.Process(
-        name="heartbeat", target=functools.partial(_heartbeat_loop, worker=worker)
-    )
-    heartbeat.start()
+# extend if needed, they're started as subprocesses
+services: dict[str, tp.Callable[[HQWorker], None]] = {
+    "heartbeat": _heartbeat_loop,
+    "process": _process_loop,
+}
 
-    process = multiprocessing.Process(
-        name="process", target=functools.partial(_process_loop, worker=worker)
-    )
-    process.start()
+
+def run(worker: HQWorker) -> None:
+    for name, service in services.items():
+        service_p = multiprocessing.Process(
+            name=name,
+            target=functools.partial(service, worker=worker),
+        )
+        service_p.start()

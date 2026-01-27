@@ -52,6 +52,7 @@ async function initializeServer() {
   // initialize states
   var taskId: TaskId = 0; // counter for all tasks to generate unique IDs
   const heavy = new Map<string, string>();
+  const heavyRefCount = new Map<string, number>();
   const available = new Map<TaskId, Payload>();
   const running = new Map<WorkerId, TaskIds>();
   const tasksStatus = new Map<TaskId, TaskStatus>();
@@ -78,16 +79,33 @@ async function initializeServer() {
     tasksStatus.set(taskId, { status: "running", info: null });
 
     // return response
-    const heavyBuf = heavyKey === null ? null : heavy.get(heavyKey);
-    // can that even happen or is this a type system quirk?
-    if (heavyBuf) {
-      return [taskBuf, heavyBuf];
+    if (heavyKey) {
+      const heavyBuf = heavy.get(heavyKey);
+      // can that even happen or is this a type system quirk?
+      if (heavyBuf) {
+        // decrement ref count
+        heavyRefCount.set(heavyKey, (heavyRefCount.get(heavyKey) || 0) - 1);
+        // delete heavy key if ref count is 0
+        if (heavyRefCount.get(heavyKey) === 0) {
+          console.log(`Deleting heavy key ${heavyKey}, ref count at 0`);
+          heavy.delete(heavyKey);
+        }
+        return [taskBuf, heavyBuf];
+      }
     }
     return [taskBuf, null];
   }
 
   async function addTask(json: AddTaskReq): Promise<TaskId> {
     const payload = [json.task, json.heavyKey] as Payload;
+
+    if (json.heavyKey) {
+      // increment ref count for heavy objs
+      heavyRefCount.set(
+        json.heavyKey,
+        (heavyRefCount.get(json.heavyKey) || 0) + 1,
+      );
+    }
 
     console.log(`Received task ${taskId}: ${payload}`);
 

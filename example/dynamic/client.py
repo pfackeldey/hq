@@ -3,7 +3,7 @@ from functools import partial
 from hq.client import HQClient
 
 
-def make_i_larger_than_ten(i: int, retry: int):
+def make_i_larger_than_ten(i: int, retry: int) -> dict | None:
     """
     This is a recursive function that wants to make `i` larger than 10
     by doubling it.

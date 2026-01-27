@@ -4,7 +4,7 @@ import requests
 import typing as tp
 
 from hq.base import HQBaseConnection
-from hq.util import serialize_obj
+from hq.util import serialize_obj, deserialize_obj
 
 TaskID: tp.TypeAlias = int
 
@@ -12,6 +12,11 @@ TaskID: tp.TypeAlias = int
 class AddTaskDict(tp.TypedDict):
     task: str
     heavyKey: str | None
+
+
+class TaskStatus(tp.TypedDict):
+    status: tp.Literal["success"] | tp.Literal["running"] | tp.Literal["error"]
+    info: str | None  # additional info, e.g. path to log file / error
 
 
 # client extends with `submit` and `map`
@@ -60,3 +65,15 @@ class HQClient(HQBaseConnection):
             )
 
         return response.json()["taskIds"]
+
+    def check(self, task_id: int) -> TaskStatus:
+        response = requests.get(f"{self.url}/tasks/status/{task_id}")
+
+        # raise if task doesn't exist
+        response.raise_for_status()
+
+        # else return status, the type is given by the server implementation (we can trust it)
+        body = response.json()
+        return TaskStatus(
+            {"status": body["status"], "info": deserialize_obj(body["info"])}
+        )

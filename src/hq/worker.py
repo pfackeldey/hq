@@ -121,6 +121,7 @@ def run(worker: HQWorker) -> None:
     for name, service in services.items():
         service_p = multiprocessing.Process(
             name=name,
-            target=functools.partial(service, worker=worker),
+            target=service,
+            args=(worker,),
         )
         service_p.start()

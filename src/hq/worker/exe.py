@@ -5,16 +5,30 @@ import json
 import resource
 import sys
 import time
+from pathlib import Path
 
-from hq.util import deserialize_obj
+# Fresh interpreter via Popen does not inherit the notebook/client sys.path.
+# exe.py lives at <repo>/src/hq/worker/exe.py → parents[2] == <repo>/src
+_SRC_ROOT = Path(__file__).resolve().parents[2]
+if str(_SRC_ROOT) not in sys.path:
+    sys.path.insert(0, str(_SRC_ROOT))
+
+from hq.util import serialize_obj, deserialize_obj
+
+
+def _load_payload(payload_arg: str) -> list:
+    """Payload is inline JSON, or a path to a JSON file (avoids ARG_MAX)."""
+    if payload_arg.startswith("["):
+        return json.loads(payload_arg)
+    return json.loads(Path(payload_arg).read_text())
 
 
 def main() -> None:
-    # arg1: task_id, arg2: payload
-    task_id, payload = sys.argv[1:]
+    # arg1: task_id, arg2: payload JSON or path to JSON file
+    task_id, payload_arg = sys.argv[1:]
     task_id = int(task_id)
 
-    payload = json.loads(payload)  # payload passed as: '["...", "..."]'
+    payload = _load_payload(payload_arg)
 
     # Task deserialization (payload := [task, heavy]):
     # There are two options on how tasks are serialized:
@@ -48,6 +62,8 @@ def main() -> None:
                 "runtime": time.time() - start,
                 "peakRSS": resource.getrusage(resource.RUSAGE_SELF).ru_maxrss,
             },
+            # IPC to parent only — parent writes this to the shared FS
+            "taskResult": serialize_obj(result),
         }
     except BaseException as error:
         result = error
@@ -61,13 +77,13 @@ def main() -> None:
             },
         }
 
-    # log the result
+    # Do not print full result — can be huge; warnings may also use stderr.
     print(
-        f"Task {task_id} finished with '{info['taskStatus']}' (took {info['taskInfo']['runtime']}s): {result=}"
+        f"Task {task_id} finished with '{info['taskStatus']}' "
+        f"(took {info['taskInfo']['runtime']}s)"
     )
 
-    # communicate to parent worker through stderr IPC
-    # as stdout is used to print some info
+    # IPC to parent: last line of stderr must be this JSON object (warnings may precede it)
     print(json.dumps(info), file=sys.stderr)
     sys.stderr.flush()
 
@@ -76,11 +92,13 @@ if __name__ == "__main__":
     """
     Run this script to execute a hq payload as a subprocess, e.g.,
 
-        $ python exe.py 1 ["...", "..."]
+        $ python exe.py 1 '["...", "..."]'
+        $ python exe.py 1 /tmp/payload.json
 
     where:
         arg1: task ID
         arg2: json serialized payload (2-element list of taskBuf & Optional[heavyBuf])
+              or a filesystem path containing that JSON
 
     The idea of running the payload in a dedicated subprocess allows us to:
     - swap out the python executable (e.g. `uv run --with ... exe.py ...`)

@@ -2,9 +2,9 @@ import sys
 
 from hq.worker import HQWorker, run
 
-HOST = "http://localhost"
+HOST = "https://localhost"
 PORT = 3000
-
+VERIFY = "cert.pem"
 
 if __name__ == "__main__":
     if len(sys.argv) < 2:
@@ -16,6 +16,6 @@ if __name__ == "__main__":
     verify = sys.argv[4] if len(sys.argv) > 4 else None
 
     worker = HQWorker(
-        host=host, port=port, queue=queue, fetch_n_tasks=3, verify=verify
+        host=host, port=port, queue=queue, fetch_n_tasks=3, verify=VERIFY
     )
     run(worker)

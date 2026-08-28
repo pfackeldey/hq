@@ -5,7 +5,7 @@ import typing as tp
 import hashlib
 
 from hq.base import HQBaseConnection
-from hq.util import serialize_obj
+from hq.util import serialize_obj, load_result
 from hq.types import TaskID, TaskStatus, AddTaskDict
 
 
@@ -126,3 +126,43 @@ class HQClient(HQBaseConnection):
 
         # Preserve input ordering and multiplicity.
         return tuple(by_id.get(task_id) for task_id in ids)
+    
+    
+    def gather(self, *task_ids: int) -> tuple[tp.Any, ...]:
+        """Load return values for terminal tasks. (finished tasks that will not change status again)
+
+        Tasks must already be finished (use wait() first). On the first
+        non-success status, raises RuntimeError.
+        """
+        if len(task_ids) == 0:
+            return tuple()
+
+        statuses = self.check(*task_ids)
+        values: list[tp.Any] = []
+
+        for task_id, status in zip(task_ids, statuses):
+            if status is None:
+                raise RuntimeError(f"Task {task_id}: missing status")
+
+            st = status["status"]
+            info = status["info"] or {}
+
+            if st == "success":
+                locator = info.get("resultPath")
+                if not locator:
+                    raise RuntimeError(
+                        f"Task {task_id}: success but no resultPath in info" # nice 
+                    )
+                values.append(load_result(locator))
+            elif st == "error":
+                raise RuntimeError(
+                    f"Task {task_id}: {info.get('errorType')}: {info.get('errorMessage')}"
+                )
+            elif st == "lost":
+                raise RuntimeError(f"Task {task_id}: lost")
+            else:
+                raise RuntimeError(
+                    f"Task {task_id}: not terminal (status={st!r}); call wait() first" # good, so that we can't gather unfinished tasks
+                )
+
+        return tuple(values)

@@ -18,6 +18,17 @@ bun.lock
 
 # Local-only (not part of the project)
 docs/
+docs/stuff/
+docs/plans/
 graphify-out/
 .vscode/
-scripts/
+example/nanoaod_inputs.json
+
+example/histograms/
+example/figures/
+example/metrics/
+example/histograms.root
+example/workspace.json
+example/corrections.json
+*.executed.ipynb
+.cursor/
